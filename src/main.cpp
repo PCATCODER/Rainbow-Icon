@@ -2,16 +2,27 @@
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/ProfilePage.hpp>
-#include <cmath>
+#include <algorithm>
 #include <climits>
+#include <cmath>
 
 using namespace geode::prelude;
 
 namespace {
-	float g_hue = 0.f;             // 0..1
+	float g_hue = 0.f;
 	float g_syncTimer = 0.f;
 	int g_lastPaletteId = -1;
 	std::vector<WeakRef<SimplePlayer>> g_tracked;
+
+	// Sets the saved glow color id, whichever way this Geode version allows
+	template <class GM>
+	void setGlowId(GM* gm, int id) {
+		if constexpr (requires { gm->m_playerGlowColor; }) {
+			gm->m_playerGlowColor = id;
+		} else if constexpr (requires { gm->setPlayerColor3(id); }) {
+			gm->setPlayerColor3(id);
+		}
+	}
 
 	ccColor3B hueToRGB(float h) {
 		float r = std::fabs(h * 6.f - 3.f) - 1.f;
@@ -35,7 +46,10 @@ namespace {
 			int dg = int(p.g) - int(c.g);
 			int db = int(p.b) - int(c.b);
 			int d = dr * dr + dg * dg + db * db;
-			if (d < bestDist) { bestDist = d; best = i; }
+			if (d < bestDist) {
+				bestDist = d;
+				best = i;
+			}
 		}
 		return best;
 	}
@@ -52,15 +66,12 @@ namespace {
 		}
 	}
 
-	void restorePaletteColors() {
+	void restoreOriginalColors() {
 		auto mod = Mod::get();
-		if (!mod->hasSavedValue("orig-color2")) return;
 		auto gm = GameManager::get();
 		gm->setPlayerColor2(mod->getSavedValue<int>("orig-color2"));
-		gm->setPlayerGlowColor(mod->getSavedValue<int>("orig-glow-color"));
+		setGlowId(gm, mod->getSavedValue<int>("orig-glow-color"));
 		gm->setPlayerGlow(mod->getSavedValue<bool>("orig-glow"));
-		mod->setSavedValue("orig-color2", 0);
-		// clear marker by saving a sentinel
 		mod->setSavedValue("has-orig", false);
 		g_lastPaletteId = -1;
 	}
@@ -82,9 +93,11 @@ namespace {
 
 		// Optional: push nearest palette color into saved icon colors
 		bool sync = mod->getSettingValue<bool>("palette-sync");
+		bool hasOrig = mod->getSavedValue<bool>("has-orig", false);
 		auto gm = GameManager::get();
+
 		if (sync) {
-			if (!mod->getSavedValue<bool>("has-orig", false)) {
+			if (!hasOrig) {
 				mod->setSavedValue("orig-color2", gm->getPlayerColor2());
 				mod->setSavedValue("orig-glow-color", gm->getPlayerGlowColor());
 				mod->setSavedValue("orig-glow", gm->getPlayerGlow());
@@ -97,18 +110,13 @@ namespace {
 				if (id != g_lastPaletteId) {
 					g_lastPaletteId = id;
 					gm->setPlayerColor2(id);
-					gm->setPlayerGlowColor(id);
+					setGlowId(gm, id);
 					gm->setPlayerGlow(true);
 				}
 			}
-		} else if (mod->getSavedValue<bool>("has-orig", false)) {
+		} else if (hasOrig) {
 			// setting was turned off: put the player's real colors back
-			auto gm2 = GameManager::get();
-			gm2->setPlayerColor2(mod->getSavedValue<int>("orig-color2"));
-			gm2->setPlayerGlowColor(mod->getSavedValue<int>("orig-glow-color"));
-			gm2->setPlayerGlow(mod->getSavedValue<bool>("orig-glow"));
-			mod->setSavedValue("has-orig", false);
-			g_lastPaletteId = -1;
+			restoreOriginalColors();
 		}
 	}
 }
@@ -146,10 +154,10 @@ class $modify(RainbowPlayer, PlayerObject) {
 	}
 };
 
-// If a previous session crashed with palette-sync on, put colors back on load
+// If a previous session ended with palette-sync on, put colors back on load
 $on_mod(Loaded) {
-	if (!Mod::get()->getSettingValue<bool>("palette-sync") &&
-		Mod::get()->getSavedValue<bool>("has-orig", false)) {
-		restorePaletteColors();
+	auto mod = Mod::get();
+	if (!mod->getSettingValue<bool>("palette-sync") && mod->getSavedValue<bool>("has-orig", false)) {
+		restoreOriginalColors();
 	}
 }
