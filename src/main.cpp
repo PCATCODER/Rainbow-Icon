@@ -2,6 +2,7 @@
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/ProfilePage.hpp>
+#include <Geode/modify/GJGarageLayer.hpp>
 #include <algorithm>
 #include <climits>
 #include <cmath>
@@ -54,15 +55,40 @@ namespace {
 		return best;
 	}
 
+	void trackPlayer(SimplePlayer* sp) {
+		if (sp) g_tracked.push_back(WeakRef<SimplePlayer>(sp));
+	}
+
 	void collectPlayers(CCNode* node) {
 		if (!node) return;
 		if (auto sp = typeinfo_cast<SimplePlayer*>(node)) {
-			g_tracked.push_back(WeakRef<SimplePlayer>(sp));
+			trackPlayer(sp);
 		}
 		if (auto kids = node->getChildren()) {
 			for (auto kid : CCArrayExt<CCNode*>(kids)) {
 				collectPlayers(kid);
 			}
+		}
+	}
+
+	// Rainbow color 2 + forced glow on an icon preview (profile page, icon kit)
+	void paintSimplePlayer(SimplePlayer* sp, ccColor3B col) {
+		sp->setSecondColor(col);
+		sp->enableCustomGlowColor(col);
+		sp->setGlowOutline(col);
+
+		bool robot = sp->m_robotSprite && sp->m_robotSprite->isVisible();
+		bool spider = sp->m_spiderSprite && sp->m_spiderSprite->isVisible();
+
+		if (robot) {
+			sp->m_robotSprite->showGlow();
+			sp->m_robotSprite->updateGlowColor(col, false);
+		} else if (spider) {
+			sp->m_spiderSprite->showGlow();
+			sp->m_spiderSprite->updateGlowColor(col, false);
+		} else if (sp->m_outlineSprite) {
+			sp->m_outlineSprite->setVisible(true);
+			sp->m_outlineSprite->setColor(col);
 		}
 	}
 
@@ -82,82 +108,7 @@ namespace {
 		g_hue = std::fmod(g_hue + dt * speed, 1.f);
 		ccColor3B col = hueToRGB(g_hue);
 
-		// Profile page icons (your own account only)
+		// Icon previews: profile page + icon kit
 		std::erase_if(g_tracked, [](auto& w) { return !w.lock(); });
 		for (auto& w : g_tracked) {
-			if (auto sp = w.lock()) {
-				sp->setSecondColor(col);
-				sp->setGlowOutline(col);
-			}
-		}
-
-		// Optional: push nearest palette color into saved icon colors
-		bool sync = mod->getSettingValue<bool>("palette-sync");
-		bool hasOrig = mod->getSavedValue<bool>("has-orig", false);
-		auto gm = GameManager::get();
-
-		if (sync) {
-			if (!hasOrig) {
-				mod->setSavedValue("orig-color2", gm->getPlayerColor2());
-				mod->setSavedValue("orig-glow-color", gm->getPlayerGlowColor());
-				mod->setSavedValue("orig-glow", gm->getPlayerGlow());
-				mod->setSavedValue("has-orig", true);
-			}
-			g_syncTimer += dt;
-			if (g_syncTimer >= 0.1f) {
-				g_syncTimer = 0.f;
-				int id = nearestPaletteId(col);
-				if (id != g_lastPaletteId) {
-					g_lastPaletteId = id;
-					gm->setPlayerColor2(id);
-					setGlowId(gm, id);
-					gm->setPlayerGlow(true);
-				}
-			}
-		} else if (hasOrig) {
-			// setting was turned off: put the player's real colors back
-			restoreOriginalColors();
-		}
-	}
-}
-
-// Heartbeat: runs every frame everywhere (menus, profile page, levels)
-class $modify(RainbowScheduler, CCScheduler) {
-	void update(float dt) {
-		CCScheduler::update(dt);
-		tick(dt);
-	}
-};
-
-// Account page: grab the icons when your own profile loads
-class $modify(RainbowProfile, ProfilePage) {
-	void loadPageFromUserInfo(GJUserScore* score) {
-		ProfilePage::loadPageFromUserInfo(score);
-		if (score && score->m_accountID == GJAccountManager::get()->m_accountID) {
-			collectPlayers(this);
-		}
-	}
-};
-
-// In-level: recolor your own player objects every frame
-class $modify(RainbowPlayer, PlayerObject) {
-	void update(float dt) {
-		PlayerObject::update(dt);
-		auto pl = PlayLayer::get();
-		if (!pl) return;
-		if (this != pl->m_player1 && this != pl->m_player2) return;
-
-		ccColor3B col = hueToRGB(g_hue);
-		this->setSecondColor(col);
-		this->m_hasGlow = true;
-		this->enableCustomGlowColor(col);
-	}
-};
-
-// If a previous session ended with palette-sync on, put colors back on load
-$on_mod(Loaded) {
-	auto mod = Mod::get();
-	if (!mod->getSettingValue<bool>("palette-sync") && mod->getSavedValue<bool>("has-orig", false)) {
-		restoreOriginalColors();
-	}
-}
+			if (auto sp = w.lock())
