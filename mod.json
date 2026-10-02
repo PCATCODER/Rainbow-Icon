@@ -1,0 +1,26 @@
+{
+	"geode": "4.0.0",
+	"gd": "*",
+	"id": "elijah.rainbow-icon",
+	"name": "Rainbow Icon",
+	"version": "v1.0.0",
+	"developer": "Elijah",
+	"description": "Cycles your icon's secondary color through RGB with glow, like Mega Hack's rainbow icon.",
+	"settings": {
+		"speed": {
+			"type": "float",
+			"name": "Speed (cycles per second)",
+			"description": "How fast the hue cycles. 0.3 is roughly one full loop every 3 seconds.",
+			"default": 0.3,
+			"min": 0.01,
+			"max": 5.0,
+			"control": { "slider": true }
+		},
+		"palette-sync": {
+			"type": "bool",
+			"name": "Sync nearest palette color (Globed, experimental)",
+			"description": "Also sets your real saved Color 2 + glow to the closest palette color, so mods that send your icon colors (like Globed) can pick it up. Palette only has ~107 colors, so it looks steppy to others. Your original color is restored when you turn this off.",
+			"default": false
+		}
+	}
+}
