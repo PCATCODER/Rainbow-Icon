@@ -150,6 +150,20 @@ namespace {
 		if (s) s->setColor(c);
 	}
 
+	// Own version of CCMotionStreak::tintWithColor (the original may not be
+	// available on every Windows build, which makes the whole mod fail to load)
+	void tintStreak(CCMotionStreak* s, ccColor3B c) {
+		if (!s) return;
+		s->setColor(c);
+		if (s->m_pColorPointer) {
+			for (unsigned int i = 0; i < s->m_uNuPoints * 2; i++) {
+				s->m_pColorPointer[i * 4 + 0] = c.r;
+				s->m_pColorPointer[i * 4 + 1] = c.g;
+				s->m_pColorPointer[i * 4 + 2] = c.b;
+			}
+		}
+	}
+
 	void restoreOriginalColors() {
 		auto mod = Mod::get();
 		auto gm = GameManager::get();
@@ -264,12 +278,8 @@ class $modify(RainbowPlayer, PlayerObject) {
 		}
 
 		// Trails
-		if (g_cfg.regularTrail && this->m_regularTrail) {
-			this->m_regularTrail->tintWithColor(c2);
-		}
-		if (g_cfg.shipStreak && this->m_shipStreak) {
-			this->m_shipStreak->tintWithColor(c2);
-		}
+		if (g_cfg.regularTrail) tintStreak(this->m_regularTrail, c2);
+		if (g_cfg.shipStreak) tintStreak(this->m_shipStreak, c2);
 		if (g_cfg.waveTrail && this->m_waveTrail) {
 			this->m_waveTrail->setColor(c2);
 		}
