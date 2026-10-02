@@ -97,6 +97,11 @@
 			"name": "Ghost trail",
 			"default": true
 		},
+		"progress-bar": {
+			"type": "bool",
+			"name": "Progress bar (in levels)",
+			"default": true
+		},
 		"title-advanced": {
 			"type": "title",
 			"name": "Experimental"
