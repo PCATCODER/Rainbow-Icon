@@ -3,10 +3,10 @@
 	"gd": {
 		"win": "2.2081"
 	},
-	"id": "elijah.rainbow-icon",
-	"name": "Rainbow Icon",
+	"id": "PCATCODER.rainbow-icon",
+	"name": "Chroma Icon",
 	"version": "v1.1.0",
-	"developer": "Elijah",
+	"developer": "PCATCODER",
 	"description": "Rainbow-cycles your icon colors, glow, trails and fire. Pick exactly what is affected in the settings.",
 	"settings": {
 		"title-colors": {
