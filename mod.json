@@ -1,6 +1,8 @@
 {
-	"geode": "4.0.0",
-	"gd": "*",
+	"geode": "5.10.1",
+	"gd": {
+		"win": "2.2081"
+	},
 	"id": "elijah.rainbow-icon",
 	"name": "Rainbow Icon",
 	"version": "v1.0.0",
