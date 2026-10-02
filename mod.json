@@ -5,23 +5,106 @@
 	},
 	"id": "elijah.rainbow-icon",
 	"name": "Rainbow Icon",
-	"version": "v1.0.0",
+	"version": "v1.1.0",
 	"developer": "Elijah",
-	"description": "Cycles your icon's secondary color through RGB with glow, like Mega Hack's rainbow icon.",
+	"description": "Rainbow-cycles your icon colors, glow, trails and fire. Pick exactly what is affected in the settings.",
 	"settings": {
+		"title-colors": {
+			"type": "title",
+			"name": "Which colors cycle"
+		},
+		"color-1": {
+			"type": "bool",
+			"name": "Color 1 (main color)",
+			"default": false
+		},
+		"color-2": {
+			"type": "bool",
+			"name": "Color 2 (secondary color)",
+			"default": true
+		},
+		"glow": {
+			"type": "bool",
+			"name": "Glow",
+			"description": "Glow outline color. Turn this off if anything looks wrong, then tell me what changed.",
+			"default": true
+		},
+		"color-1-offset": {
+			"type": "float",
+			"name": "Color 1 hue offset",
+			"description": "0 = Color 1 matches Color 2. 0.5 = opposite side of the rainbow.",
+			"default": 0.5,
+			"min": 0.0,
+			"max": 1.0,
+			"control": { "slider": true }
+		},
 		"speed": {
 			"type": "float",
 			"name": "Speed (cycles per second)",
-			"description": "How fast the hue cycles. 0.3 is roughly one full loop every 3 seconds.",
+			"description": "How fast the colors cycle. 0.3 is about one full loop every 3 seconds.",
 			"default": 0.3,
 			"min": 0.01,
 			"max": 5.0,
 			"control": { "slider": true }
 		},
+		"previews": {
+			"type": "bool",
+			"name": "Icon kit and profile page",
+			"description": "Show the rainbow on the icon previews in the icon kit and on your profile.",
+			"default": true
+		},
+		"title-effects": {
+			"type": "title",
+			"name": "Effects (in levels, use the Color 2 rainbow)"
+		},
+		"regular-trail": {
+			"type": "bool",
+			"name": "Trail",
+			"default": true
+		},
+		"wave-trail": {
+			"type": "bool",
+			"name": "Wave trail",
+			"default": true
+		},
+		"ship-streak": {
+			"type": "bool",
+			"name": "Ship trail",
+			"default": true
+		},
+		"dash-fire": {
+			"type": "bool",
+			"name": "Dash fire",
+			"default": true
+		},
+		"ship-fire": {
+			"type": "bool",
+			"name": "Ship and UFO fire / click particles",
+			"default": true
+		},
+		"swing-fire": {
+			"type": "bool",
+			"name": "Swing and robot fire",
+			"default": true
+		},
+		"ground-particles": {
+			"type": "bool",
+			"name": "Ground and landing particles",
+			"default": true
+		},
+		"ghost-trail": {
+			"type": "bool",
+			"name": "Ghost trail",
+			"default": true
+		},
+		"title-advanced": {
+			"type": "title",
+			"name": "Experimental"
+		},
 		"palette-sync": {
 			"type": "bool",
-			"name": "Sync nearest palette color (Globed, experimental)",
-			"description": "Also sets your real saved Color 2 + glow to the closest palette color, so mods that send your icon colors (like Globed) can pick it up. Palette only has ~107 colors, so it looks steppy to others. Your original color is restored when you turn this off.",
+			"name": "Sync nearest palette color (Globed)",
+			"description": "Also sets your real saved Color 2 + glow to the closest palette color, so mods that send your icon colors (like Globed) can pick it up. Looks steppy to others. Your original color is restored when you turn this off.",
 			"default": false
 		}
 	}
