@@ -23,6 +23,7 @@ namespace {
 		bool swingFire = true;
 		bool groundParticles = true;
 		bool ghostTrail = true;
+		bool progressBar = true;
 		float hue1Offset = 0.5f;
 	};
 
@@ -46,6 +47,7 @@ namespace {
 		g_cfg.swingFire = m->getSettingValue<bool>("swing-fire");
 		g_cfg.groundParticles = m->getSettingValue<bool>("ground-particles");
 		g_cfg.ghostTrail = m->getSettingValue<bool>("ghost-trail");
+		g_cfg.progressBar = m->getSettingValue<bool>("progress-bar");
 		g_cfg.hue1Offset = static_cast<float>(m->getSettingValue<double>("color-1-offset"));
 	}
 
@@ -182,6 +184,13 @@ namespace {
 		g_hue = std::fmod(g_hue + dt * speed, 1.f);
 		ccColor3B c1 = hueToRGB(g_hue + g_cfg.hue1Offset);
 		ccColor3B c2 = hueToRGB(g_hue);
+
+		// Level progress bar (the fill part of the bar at the top)
+		if (g_cfg.progressBar) {
+			if (auto pl = PlayLayer::get()) {
+				if (pl->m_progressFill) pl->m_progressFill->setColor(c2);
+			}
+		}
 
 		// Icon previews: profile page + icon kit
 		std::erase_if(g_tracked, [](auto& w) { return !w.lock(); });
