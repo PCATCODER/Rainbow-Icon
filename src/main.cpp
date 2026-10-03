@@ -1,43 +1,37 @@
 #include <Geode/Geode.hpp>
-#include <Geode/modify/GameLevelManager.hpp>
-#include <Geode/modify/GameManager.hpp>
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/modify/PlayerObject.hpp>
-#include <Geode/modify/ProfilePage.hpp>
-#include <Geode/modify/GJGarageLayer.hpp>
+#include <Geode/modify/GameManager.hpp>
+#include <Geode/modify/CharacterColorPage.hpp>
 #include <algorithm>
-#include <climits>
 #include <cmath>
 
 using namespace geode::prelude;
 
 namespace {
 	struct Config {
-		bool color1 = false;
-		bool color2 = true;
-		bool glow = true;
-		bool previews = true;
+		bool show = true;
+		int rainbowId = 200;
+		float hue1Offset = 0.5f;
 		bool regularTrail = true;
 		bool waveTrail = true;
 		bool shipStreak = true;
+		bool ghostTrail = true;
 		bool dashFire = true;
 		bool shipFire = true;
 		bool swingFire = true;
 		bool groundParticles = true;
-		bool ghostTrail = true;
 		bool progressBar = true;
-		bool showRainbowPalette = true;
-		int rainbowId = 106;
-		float hue1Offset = 0.5f;
 	};
 
 	Config g_cfg;
 	float g_hue = 0.f;
-	float g_syncTimer = 0.f;
-	int g_lastPaletteId = -1;
-	std::vector<WeakRef<SimplePlayer>> g_tracked;
+	bool g_own1 = false;
+	bool g_own2 = false;
+	bool g_ownGlow = false;
 
-	// "Rainbow palette color": a stand-in color that marks icons to be drawn as rainbow
+	// Stand-in color the game gets when it asks for the Rainbow slot.
+	// The heartbeat finds icons wearing it and animates them.
 	constexpr ccColor3B RAINBOW_MARK = {255, 1, 3};
 	struct RainbowSlots {
 		bool first = false;
@@ -45,38 +39,24 @@ namespace {
 		bool glow = false;
 	};
 	std::vector<std::pair<WeakRef<SimplePlayer>, RainbowSlots>> g_rainbowPlayers;
+	WeakRef<CCSprite> g_swatch;
 	bool g_scanPending = false;
 	int g_scanDelay = 0;
-	bool g_useRainbowId = false;
 
 	void readConfig() {
 		auto m = Mod::get();
-		g_cfg.color1 = m->getSettingValue<bool>("color-1");
-		g_cfg.color2 = m->getSettingValue<bool>("color-2");
-		g_cfg.glow = m->getSettingValue<bool>("glow");
-		g_cfg.previews = m->getSettingValue<bool>("previews");
+		g_cfg.show = m->getSettingValue<bool>("show-rainbow-palette");
+		g_cfg.rainbowId = static_cast<int>(m->getSettingValue<int64_t>("rainbow-id"));
+		g_cfg.hue1Offset = static_cast<float>(m->getSettingValue<double>("color-1-offset"));
 		g_cfg.regularTrail = m->getSettingValue<bool>("regular-trail");
 		g_cfg.waveTrail = m->getSettingValue<bool>("wave-trail");
 		g_cfg.shipStreak = m->getSettingValue<bool>("ship-streak");
+		g_cfg.ghostTrail = m->getSettingValue<bool>("ghost-trail");
 		g_cfg.dashFire = m->getSettingValue<bool>("dash-fire");
 		g_cfg.shipFire = m->getSettingValue<bool>("ship-fire");
 		g_cfg.swingFire = m->getSettingValue<bool>("swing-fire");
 		g_cfg.groundParticles = m->getSettingValue<bool>("ground-particles");
-		g_cfg.ghostTrail = m->getSettingValue<bool>("ghost-trail");
 		g_cfg.progressBar = m->getSettingValue<bool>("progress-bar");
-		g_cfg.showRainbowPalette = m->getSettingValue<bool>("show-rainbow-palette");
-		g_cfg.rainbowId = static_cast<int>(m->getSettingValue<int64_t>("rainbow-id"));
-		g_cfg.hue1Offset = static_cast<float>(m->getSettingValue<double>("color-1-offset"));
-	}
-
-	// Sets the saved glow color id, whichever way this Geode version allows
-	template <class GM>
-	void setGlowId(GM* gm, int id) {
-		if constexpr (requires { gm->m_playerGlowColor; }) {
-			gm->m_playerGlowColor = id;
-		} else if constexpr (requires { gm->setPlayerColor3(id); }) {
-			gm->setPlayerColor3(id);
-		}
 	}
 
 	ccColor3B hueToRGB(float h) {
@@ -93,34 +73,11 @@ namespace {
 		};
 	}
 
-	int nearestPaletteId(ccColor3B c) {
-		auto gm = GameManager::get();
-		int best = 0;
-		int bestDist = INT_MAX;
-		for (int i = 0; i < 107; i++) {
-			if (i == g_cfg.rainbowId) continue;
-			auto p = gm->colorForIdx(i);
-			int dr = int(p.r) - int(c.r);
-			int dg = int(p.g) - int(c.g);
-			int db = int(p.b) - int(c.b);
-			int d = dr * dr + dg * dg + db * db;
-			if (d < bestDist) {
-				bestDist = d;
-				best = i;
-			}
-		}
-		return best;
-	}
-
-	// Which palette number gets saved on the profile upload
-	int pickId(ccColor3B c) {
-		return g_useRainbowId ? g_cfg.rainbowId : nearestPaletteId(c);
-	}
-
 	bool isMark(ccColor3B c) {
 		return c.r == RAINBOW_MARK.r && c.g == RAINBOW_MARK.g && c.b == RAINBOW_MARK.b;
 	}
 
+	// Finds every icon (icon kit, profile page, comments, ...) wearing the marker color
 	void scanForMarked(CCNode* node) {
 		if (!node) return;
 		if (auto sp = typeinfo_cast<SimplePlayer*>(node)) {
@@ -149,44 +106,25 @@ namespace {
 		}
 	}
 
-	void trackPlayer(SimplePlayer* sp) {
-		if (sp) g_tracked.push_back(WeakRef<SimplePlayer>(sp));
-	}
+	// Rainbow on an icon preview: first/second color and the glow outline
+	void paintIcon(SimplePlayer* sp, bool first, bool second, bool glow, ccColor3B c1, ccColor3B c2) {
+		if (first) sp->setColor(c1);
+		if (second) sp->setSecondColor(c2);
+		if (!glow) return;
 
-	void collectPlayers(CCNode* node) {
-		if (!node) return;
-		if (auto sp = typeinfo_cast<SimplePlayer*>(node)) {
-			trackPlayer(sp);
-		}
-		if (auto kids = node->getChildren()) {
-			for (auto kid : CCArrayExt<CCNode*>(kids)) {
-				collectPlayers(kid);
-			}
-		}
-	}
-
-	// Icon previews (profile page, icon kit): only touches what is switched on
-	void paintSimplePlayer(SimplePlayer* sp, ccColor3B c1, ccColor3B c2) {
-		if (g_cfg.color1) sp->setColor(c1);
-		if (g_cfg.color2) sp->setSecondColor(c2);
-
-		if (g_cfg.glow) {
-			sp->enableCustomGlowColor(c2);
-			sp->setGlowOutline(c2);
-
-			bool robot = sp->m_robotSprite && sp->m_robotSprite->isVisible();
-			bool spider = sp->m_spiderSprite && sp->m_spiderSprite->isVisible();
-
-			if (robot) {
-				sp->m_robotSprite->showGlow();
-				sp->m_robotSprite->updateGlowColor(c2, false);
-			} else if (spider) {
-				sp->m_spiderSprite->showGlow();
-				sp->m_spiderSprite->updateGlowColor(c2, false);
-			} else if (sp->m_outlineSprite) {
-				sp->m_outlineSprite->setVisible(true);
-				sp->m_outlineSprite->setColor(c2);
-			}
+		sp->enableCustomGlowColor(c2);
+		sp->setGlowOutline(c2);
+		bool robot = sp->m_robotSprite && sp->m_robotSprite->isVisible();
+		bool spider = sp->m_spiderSprite && sp->m_spiderSprite->isVisible();
+		if (robot) {
+			sp->m_robotSprite->showGlow();
+			sp->m_robotSprite->updateGlowColor(c2, false);
+		} else if (spider) {
+			sp->m_spiderSprite->showGlow();
+			sp->m_spiderSprite->updateGlowColor(c2, false);
+		} else if (sp->m_outlineSprite) {
+			sp->m_outlineSprite->setVisible(true);
+			sp->m_outlineSprite->setColor(c2);
 		}
 	}
 
@@ -208,8 +146,8 @@ namespace {
 		if (s) s->setColor(c);
 	}
 
-	// Own version of CCMotionStreak::tintWithColor (the original may not be
-	// available on every Windows build, which makes the whole mod fail to load)
+	// Own version of CCMotionStreak::tintWithColor (the original may be missing
+	// on some Windows builds, which would stop the whole mod from loading)
 	void tintStreak(CCMotionStreak* s, ccColor3B c) {
 		if (!s) return;
 		s->setColor(c);
@@ -222,16 +160,6 @@ namespace {
 		}
 	}
 
-	void restoreOriginalColors() {
-		auto mod = Mod::get();
-		auto gm = GameManager::get();
-		gm->setPlayerColor2(mod->getSavedValue<int>("orig-color2"));
-		setGlowId(gm, mod->getSavedValue<int>("orig-glow-color"));
-		gm->setPlayerGlow(mod->getSavedValue<bool>("orig-glow"));
-		mod->setSavedValue("has-orig", false);
-		g_lastPaletteId = -1;
-	}
-
 	void tick(float dt) {
 		auto mod = Mod::get();
 		readConfig();
@@ -241,14 +169,24 @@ namespace {
 		ccColor3B c1 = hueToRGB(g_hue + g_cfg.hue1Offset);
 		ccColor3B c2 = hueToRGB(g_hue);
 
-		// Level progress bar (the fill part of the bar at the top)
-		if (g_cfg.progressBar) {
+		// Is my own icon wearing the Rainbow slot? (my saved colors are never changed)
+		auto gm = GameManager::get();
+		int rid = g_cfg.rainbowId;
+		g_own1 = g_cfg.show && gm->getPlayerColor() == rid;
+		g_own2 = g_cfg.show && gm->getPlayerColor2() == rid;
+		g_ownGlow = g_cfg.show && gm->getPlayerGlow() && gm->getPlayerGlowColor() == rid;
+
+		// Level progress bar
+		if (g_cfg.progressBar && (g_own1 || g_own2 || g_ownGlow)) {
 			if (auto pl = PlayLayer::get()) {
 				if (pl->m_progressFill) pl->m_progressFill->setColor(c2);
 			}
 		}
 
-		// Players (with this mod) whose saved color is the Rainbow palette color
+		// The Rainbow swatch in the icon kit color grid
+		if (auto s = g_swatch.lock()) s->setColor(c2);
+
+		// Everyone's icons (with this mod) wearing the Rainbow slot
 		if (g_scanPending) {
 			g_scanPending = false;
 			g_scanDelay = 3;
@@ -259,56 +197,13 @@ namespace {
 		std::erase_if(g_rainbowPlayers, [](auto& e) { return !e.first.lock(); });
 		for (auto& e : g_rainbowPlayers) {
 			if (auto sp = e.first.lock()) {
-				if (e.second.first) sp->setColor(c2);
-				if (e.second.second) sp->setSecondColor(c2);
-				if (e.second.glow) {
-					sp->enableCustomGlowColor(c2);
-					sp->setGlowOutline(c2);
-				}
+				paintIcon(sp, e.second.first, e.second.second, e.second.glow, c1, c2);
 			}
-		}
-
-		// Icon previews: profile page + icon kit
-		std::erase_if(g_tracked, [](auto& w) { return !w.lock(); });
-		if (g_cfg.previews) {
-			for (auto& w : g_tracked) {
-				if (auto sp = w.lock()) {
-					paintSimplePlayer(sp, c1, c2);
-				}
-			}
-		}
-
-		// Optional: push nearest palette color into saved icon colors
-		bool sync = mod->getSettingValue<bool>("palette-sync");
-		bool hasOrig = mod->getSavedValue<bool>("has-orig", false);
-		auto gm = GameManager::get();
-
-		if (sync) {
-			if (!hasOrig) {
-				mod->setSavedValue("orig-color2", gm->getPlayerColor2());
-				mod->setSavedValue("orig-glow-color", gm->getPlayerGlowColor());
-				mod->setSavedValue("orig-glow", gm->getPlayerGlow());
-				mod->setSavedValue("has-orig", true);
-			}
-			g_syncTimer += dt;
-			if (g_syncTimer >= 0.1f) {
-				g_syncTimer = 0.f;
-				int id = nearestPaletteId(c2);
-				if (id != g_lastPaletteId) {
-					g_lastPaletteId = id;
-					gm->setPlayerColor2(id);
-					setGlowId(gm, id);
-					gm->setPlayerGlow(true);
-				}
-			}
-		} else if (hasOrig) {
-			// setting was turned off: put the player's real colors back
-			restoreOriginalColors();
 		}
 	}
 }
 
-// Heartbeat: runs every frame everywhere (menus, profile page, garage, levels)
+// Heartbeat: runs every frame everywhere (menus, icon kit, profile page, levels)
 class $modify(RainbowScheduler, CCScheduler) {
 	void update(float dt) {
 		CCScheduler::update(dt);
@@ -316,29 +211,63 @@ class $modify(RainbowScheduler, CCScheduler) {
 	}
 };
 
-// Account page: grab the icons when your own profile loads
-class $modify(RainbowProfile, ProfilePage) {
-	void loadPageFromUserInfo(GJUserScore* score) {
-		ProfilePage::loadPageFromUserInfo(score);
-		if (score && score->m_accountID == GJAccountManager::get()->m_accountID) {
-			collectPlayers(this);
+// The Rainbow slot: hand back the marker color, and count it as unlocked
+class $modify(RainbowPalette, GameManager) {
+	ccColor3B colorForIdx(int index) {
+		if (g_cfg.show && index == g_cfg.rainbowId) {
+			g_scanPending = true;
+			return RAINBOW_MARK;
 		}
+		return GameManager::colorForIdx(index);
+	}
+
+	bool isColorUnlocked(int id, UnlockType type) {
+		if (g_cfg.show && id == g_cfg.rainbowId) return true;
+		return GameManager::isColorUnlocked(id, type);
 	}
 };
 
-// Icon kit: grab the big preview icon
-class $modify(RainbowGarage, GJGarageLayer) {
-	bool init() {
-		if (!GJGarageLayer::init()) return false;
-		trackPlayer(this->m_playerObject);
-		return true;
+// Icon kit color grid: add a clickable Rainbow swatch after the last color
+class $modify(RainbowColorPage, CharacterColorPage) {
+	void createColorMenu() {
+		CharacterColorPage::createColorMenu();
+		if (!g_cfg.show || !m_colorButtons) return;
+
+		auto first = typeinfo_cast<CCMenuItemSpriteExtra*>(m_colorButtons->objectForKey(0));
+		if (!first) return;
+		auto menu = typeinfo_cast<CCMenu*>(first->getParent());
+		auto ref = typeinfo_cast<CCSprite*>(first->getNormalImage());
+		if (!menu || !ref) return;
+
+		CCSprite* spr = nullptr;
+		if (typeinfo_cast<ColorChannelSprite*>(ref)) {
+			spr = ColorChannelSprite::create();
+		} else {
+			spr = CCSprite::createWithSpriteFrame(ref->displayFrame());
+		}
+		if (!spr) return;
+		spr->setScale(ref->getScale());
+		spr->setColor(hueToRGB(g_hue));
+
+		auto btn = CCMenuItemSpriteExtra::create(spr, nullptr, this, menu_selector(CharacterColorPage::onPlayerColor));
+		btn->setTag(g_cfg.rainbowId);
+		btn->setPosition(this->offsetForIndex(static_cast<int>(m_colorButtons->count())));
+		menu->addChild(btn);
+		m_colorButtons->setObject(btn, g_cfg.rainbowId);
+		g_swatch = spr;
+	}
+
+	int colorForIndex(int index) {
+		if (g_cfg.show && index == g_cfg.rainbowId) return index;
+		return CharacterColorPage::colorForIndex(index);
 	}
 };
 
-// In-level: recolor your own player objects, only the parts switched on
+// In a level: animate your own icon, trails and fire
 class $modify(RainbowPlayer, PlayerObject) {
 	void update(float dt) {
 		PlayerObject::update(dt);
+		if (!g_own1 && !g_own2 && !g_ownGlow) return;
 		auto pl = PlayLayer::get();
 		if (!pl) return;
 		if (this != pl->m_player1 && this != pl->m_player2) return;
@@ -346,10 +275,10 @@ class $modify(RainbowPlayer, PlayerObject) {
 		ccColor3B c1 = hueToRGB(g_hue + g_cfg.hue1Offset);
 		ccColor3B c2 = hueToRGB(g_hue);
 
-		if (g_cfg.color1) this->setColor(c1);
-		if (g_cfg.color2) this->setSecondColor(c2);
+		if (g_own1) this->setColor(c1);
+		if (g_own2) this->setSecondColor(c2);
 
-		if (g_cfg.glow) {
+		if (g_ownGlow) {
 			// robot and spider have their own glow sprites, so never force their flags
 			bool special = this->m_isRobot || this->m_isSpider;
 			if (!special && !this->m_hasGlow) {
@@ -365,12 +294,8 @@ class $modify(RainbowPlayer, PlayerObject) {
 		// Trails
 		if (g_cfg.regularTrail) tintStreak(this->m_regularTrail, c2);
 		if (g_cfg.shipStreak) tintStreak(this->m_shipStreak, c2);
-		if (g_cfg.waveTrail && this->m_waveTrail) {
-			this->m_waveTrail->setColor(c2);
-		}
-		if (g_cfg.ghostTrail && this->m_ghostTrail) {
-			this->m_ghostTrail->m_color = c2;
-		}
+		if (g_cfg.waveTrail && this->m_waveTrail) this->m_waveTrail->setColor(c2);
+		if (g_cfg.ghostTrail && this->m_ghostTrail) this->m_ghostTrail->m_color = c2;
 
 		// Fire and particles
 		if (g_cfg.dashFire) {
@@ -397,59 +322,5 @@ class $modify(RainbowPlayer, PlayerObject) {
 			paintParticles(this->m_landParticles0, c2);
 			paintParticles(this->m_landParticles1, c2);
 		}
-	}
-};
-
-// If a previous session ended with palette-sync on, put colors back on load
-$on_mod(Loaded) {
-	auto mod = Mod::get();
-	if (!mod->getSettingValue<bool>("palette-sync") && mod->getSavedValue<bool>("has-orig", false)) {
-		restoreOriginalColors();
-	}
-}
-
-// Profile upload: what OTHER players see on your account. Temporarily swaps in the
-// nearest palette colors for the upload, then puts your real colors straight back.
-class $modify(RainbowUpload, GameLevelManager) {
-	void updateUserScore() {
-		if (!Mod::get()->getSettingValue<bool>("profile-snapshot")) {
-			GameLevelManager::updateUserScore();
-			return;
-		}
-		auto gm = GameManager::get();
-		int o1 = gm->getPlayerColor();
-		int o2 = gm->getPlayerColor2();
-		int og = gm->getPlayerGlowColor();
-		bool oglow = gm->getPlayerGlow();
-
-		ccColor3B c1 = hueToRGB(g_hue + g_cfg.hue1Offset);
-		ccColor3B c2 = hueToRGB(g_hue);
-		g_useRainbowId = Mod::get()->getSettingValue<bool>("profile-rainbow-id");
-		if (g_cfg.color1) gm->setPlayerColor(pickId(c1));
-		if (g_cfg.color2) gm->setPlayerColor2(pickId(c2));
-		if (g_cfg.glow) {
-			setGlowId(gm, pickId(c2));
-			gm->setPlayerGlow(true);
-		}
-
-		GameLevelManager::updateUserScore();
-		g_useRainbowId = false;
-
-		gm->setPlayerColor(o1);
-		gm->setPlayerColor2(o2);
-		setGlowId(gm, og);
-		gm->setPlayerGlow(oglow);
-	}
-};
-
-// Rainbow palette color: when the game asks for this palette number, hand back a
-// marker color. The heartbeat above then finds those icons and animates them.
-class $modify(RainbowPalette, GameManager) {
-	ccColor3B colorForIdx(int index) {
-		if (g_cfg.showRainbowPalette && index == g_cfg.rainbowId) {
-			g_scanPending = true;
-			return RAINBOW_MARK;
-		}
-		return GameManager::colorForIdx(index);
 	}
 };
