@@ -332,3 +332,36 @@ $on_mod(Loaded) {
 		restoreOriginalColors();
 	}
 }
+
+
+// Profile upload: what OTHER players see on your account. Temporarily swaps in the
+// nearest palette colors for the upload, then puts your real colors straight back.
+class $modify(RainbowUpload, GameLevelManager) {
+	void updateUserScore() {
+		if (!Mod::get()->getSettingValue<bool>("profile-snapshot")) {
+			GameLevelManager::updateUserScore();
+			return;
+		}
+		auto gm = GameManager::get();
+		int o1 = gm->getPlayerColor();
+		int o2 = gm->getPlayerColor2();
+		int og = gm->getPlayerGlowColor();
+		bool oglow = gm->getPlayerGlow();
+
+		ccColor3B c1 = hueToRGB(g_hue + g_cfg.hue1Offset);
+		ccColor3B c2 = hueToRGB(g_hue);
+		if (g_cfg.color1) gm->setPlayerColor(nearestPaletteId(c1));
+		if (g_cfg.color2) gm->setPlayerColor2(nearestPaletteId(c2));
+		if (g_cfg.glow) {
+			setGlowId(gm, nearestPaletteId(c2));
+			gm->setPlayerGlow(true);
+		}
+
+		GameLevelManager::updateUserScore();
+
+		gm->setPlayerColor(o1);
+		gm->setPlayerColor2(o2);
+		setGlowId(gm, og);
+		gm->setPlayerGlow(oglow);
+	}
+};
