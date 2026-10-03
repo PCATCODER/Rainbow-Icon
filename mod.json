@@ -3,19 +3,43 @@
 	"gd": {
 		"win": "2.2081"
 	},
-	"id": "pcatcoder.rainbow-icon",
-	"name": "Chroma Icon",
+	"id": "pcatcoder.chroma-icon",
+	"name": "Chroma icon",
 	"version": "v1.1.0",
 	"developer": "PCATCODER",
 	"description": "Rainbow-cycles your icon colors, glow, trails and fire. Pick exactly what is affected in the settings.",
 	"settings": {
-		"title-colors": {
-					"profile-snapshot": {
+		"profile-snapshot": {
 			"type": "bool",
 			"name": "Rainbow color on my profile (what others see)",
 			"description": "When the game uploads your profile, it saves the closest palette color to the current rainbow color. Others see one fixed color (the server cannot animate), and it changes each time your profile updates. Your own saved colors are not changed.",
 			"default": true
 		},
+		"title-palette": {
+			"type": "title",
+			"name": "Rainbow palette color (for players with the mod)"
+		},
+		"show-rainbow-palette": {
+			"type": "bool",
+			"name": "Show the Rainbow palette color as a moving rainbow",
+			"description": "Any player whose saved icon color is the Rainbow palette color number (below) is drawn as a moving rainbow. Only works for players who have this mod.",
+			"default": true
+		},
+		"rainbow-id": {
+			"type": "int",
+			"name": "Rainbow palette color number",
+			"description": "Which palette color counts as the rainbow. Players WITHOUT the mod just see that normal palette color, and anyone using it looks rainbow to mod users. Everyone with the mod must use the same number.",
+			"default": 106,
+			"min": 0,
+			"max": 106
+		},
+		"profile-rainbow-id": {
+			"type": "bool",
+			"name": "Upload my profile with the Rainbow palette color",
+			"description": "Instead of the nearest palette color, your profile upload uses the Rainbow palette color number, so mod users see a moving rainbow on your account. Others see that palette color.",
+			"default": false
+		},
+		"title-colors": {
 			"type": "title",
 			"name": "Which colors cycle"
 		},
