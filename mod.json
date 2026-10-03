@@ -5,87 +5,57 @@
 	},
 	"id": "pcatcoder.chroma-icon",
 	"name": "Chroma icon",
-	"version": "v1.1.0",
+	"version": "v1.4.0",
 	"developer": "PCATCODER",
 	"description": "Rainbow-cycles your icon colors, glow, trails and fire. Pick exactly what is affected in the settings.",
 	"settings": {
-		"profile-snapshot": {
-			"type": "bool",
-			"name": "Rainbow color on my profile (what others see)",
-			"description": "When the game uploads your profile, it saves the closest palette color to the current rainbow color. Others see one fixed color (the server cannot animate), and it changes each time your profile updates. Your own saved colors are not changed.",
-			"default": true
-		},
 		"title-palette": {
 			"type": "title",
-			"name": "Rainbow palette color (for players with the mod)"
+			"name": "Rainbow palette color"
 		},
 		"show-rainbow-palette": {
 			"type": "bool",
-			"name": "Show the Rainbow palette color as a moving rainbow",
-			"description": "Any player whose saved icon color is the Rainbow palette color number (below) is drawn as a moving rainbow. Only works for players who have this mod.",
-			"default": true
+			"name": "Rainbow palette color on",
+			"default": true,
+			"description": "Adds a Rainbow swatch to the icon kit color grid. Anyone with this mod whose color is the Rainbow swatch is drawn as a moving rainbow. Turn off to disable everything."
 		},
 		"rainbow-id": {
 			"type": "int",
-			"name": "Rainbow palette color number",
-			"description": "Which palette color counts as the rainbow. Players WITHOUT the mod just see that normal palette color, and anyone using it looks rainbow to mod users. Everyone with the mod must use the same number.",
-			"default": 106,
-			"min": 0,
-			"max": 106
+			"name": "Rainbow palette slot number",
+			"default": 200,
+			"min": 107,
+			"max": 9999,
+			"description": "A NEW slot number that is not one of the normal palette colors. Everyone with the mod must use the same number. Pick a normal color again before removing the mod."
 		},
-		"profile-rainbow-id": {
-			"type": "bool",
-			"name": "Upload my profile with the Rainbow palette color",
-			"description": "Instead of the nearest palette color, your profile upload uses the Rainbow palette color number, so mod users see a moving rainbow on your account. Others see that palette color.",
-			"default": false
-		},
-		"title-colors": {
+		"title-look": {
 			"type": "title",
-			"name": "Which colors cycle"
-		},
-		"color-1": {
-			"type": "bool",
-			"name": "Color 1 (main color)",
-			"default": false
-		},
-		"color-2": {
-			"type": "bool",
-			"name": "Color 2 (secondary color)",
-			"default": true
-		},
-		"glow": {
-			"type": "bool",
-			"name": "Glow",
-			"description": "Glow outline color. Turn this off if anything looks wrong, then tell me what changed.",
-			"default": true
-		},
-		"color-1-offset": {
-			"type": "float",
-			"name": "Color 1 hue offset",
-			"description": "0 = Color 1 matches Color 2. 0.5 = opposite side of the rainbow.",
-			"default": 0.5,
-			"min": 0.0,
-			"max": 1.0,
-			"control": { "slider": true }
+			"name": "Look"
 		},
 		"speed": {
 			"type": "float",
 			"name": "Speed (cycles per second)",
-			"description": "How fast the colors cycle. 0.3 is about one full loop every 3 seconds.",
 			"default": 0.3,
 			"min": 0.01,
 			"max": 5.0,
-			"control": { "slider": true }
+			"control": {
+				"slider": true
+			},
+			"description": "How fast the rainbow cycles. 0.3 is about one full loop every 3 seconds."
 		},
-		"previews": {
-			"type": "bool",
-			"name": "Icon kit and profile page",
-			"description": "Show the rainbow on the icon previews in the icon kit and on your profile.",
-			"default": true
+		"color-1-offset": {
+			"type": "float",
+			"name": "Color 1 hue offset",
+			"default": 0.5,
+			"min": 0.0,
+			"max": 1.0,
+			"control": {
+				"slider": true
+			},
+			"description": "0 = Color 1 matches Color 2. 0.5 = opposite side of the rainbow."
 		},
 		"title-effects": {
 			"type": "title",
-			"name": "Effects (in levels, use the Color 2 rainbow)"
+			"name": "Effects (when my icon uses the rainbow)"
 		},
 		"regular-trail": {
 			"type": "bool",
@@ -100,6 +70,11 @@
 		"ship-streak": {
 			"type": "bool",
 			"name": "Ship trail",
+			"default": true
+		},
+		"ghost-trail": {
+			"type": "bool",
+			"name": "Ghost trail",
 			"default": true
 		},
 		"dash-fire": {
@@ -122,25 +97,10 @@
 			"name": "Ground and landing particles",
 			"default": true
 		},
-		"ghost-trail": {
-			"type": "bool",
-			"name": "Ghost trail",
-			"default": true
-		},
 		"progress-bar": {
 			"type": "bool",
 			"name": "Progress bar (in levels)",
 			"default": true
-		},
-		"title-advanced": {
-			"type": "title",
-			"name": "Experimental"
-		},
-		"palette-sync": {
-			"type": "bool",
-			"name": "Sync nearest palette color (Globed)",
-			"description": "Also sets your real saved Color 2 + glow to the closest palette color, so mods that send your icon colors (like Globed) can pick it up. Looks steppy to others. Your original color is restored when you turn this off.",
-			"default": false
 		}
 	}
 }
