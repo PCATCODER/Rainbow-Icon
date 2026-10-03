@@ -1,4 +1,5 @@
 #include <Geode/Geode.hpp>
+#include <Geode/modify/GameLevelManager.hpp>
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/ProfilePage.hpp>
