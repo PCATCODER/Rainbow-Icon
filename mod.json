@@ -10,6 +10,12 @@
 	"description": "Rainbow-cycles your icon colors, glow, trails and fire. Pick exactly what is affected in the settings.",
 	"settings": {
 		"title-colors": {
+					"profile-snapshot": {
+			"type": "bool",
+			"name": "Rainbow color on my profile (what others see)",
+			"description": "When the game uploads your profile, it saves the closest palette color to the current rainbow color. Others see one fixed color (the server cannot animate), and it changes each time your profile updates. Your own saved colors are not changed.",
+			"default": true
+		},
 			"type": "title",
 			"name": "Which colors cycle"
 		},
