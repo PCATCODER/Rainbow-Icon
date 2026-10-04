@@ -5,7 +5,7 @@
 	},
 	"id": "pcatcoder.chroma-icon",
 	"name": "Chroma icon",
-	"version": "v1.4.0",
+	"version": "v1.5.0",
 	"developer": "PCATCODER",
 	"description": "Rainbow-cycles your icon colors, glow, trails and fire. Pick exactly what is affected in the settings.",
 	"settings": {
@@ -17,15 +17,21 @@
 			"type": "bool",
 			"name": "Rainbow palette color on",
 			"default": true,
-			"description": "Adds a Rainbow swatch to the icon kit color grid. Anyone with this mod whose color is the Rainbow swatch is drawn as a moving rainbow. Turn off to disable everything."
+			"description": "Adds a Rainbow swatch to the icon kit color grid (slot 111). Pick it for Color 1, Color 2 or Glow and it cycles through the rainbow in your game. Turn off to disable everything."
 		},
 		"rainbow-id": {
 			"type": "int",
 			"name": "Rainbow palette slot number",
-			"default": 200,
-			"min": 107,
+			"default": 111,
+			"min": 111,
 			"max": 9999,
-			"description": "A NEW slot number that is not one of the normal palette colors. Everyone with the mod must use the same number. Pick a normal color again before removing the mod."
+			"description": "A NEW slot that is not one of the normal palette colors. Everyone with the mod must use the same number. Pick a normal color again before removing the mod."
+		},
+		"upload-slot": {
+			"type": "bool",
+			"name": "Send the Rainbow slot to other mod users",
+			"default": false,
+			"description": "OFF (recommended): other players see the nearest normal palette color to the rainbow, which every game understands. ON: your profile is uploaded with the Rainbow slot instead, so players with the mod see a moving rainbow, but players without it see an unknown color. Your real saved colors are never changed."
 		},
 		"title-look": {
 			"type": "title",
@@ -60,7 +66,8 @@
 		"regular-trail": {
 			"type": "bool",
 			"name": "Trail",
-			"default": true
+			"default": true,
+			"description": "Only tints the trail's color. Your selected trail design is never touched."
 		},
 		"wave-trail": {
 			"type": "bool",
@@ -70,7 +77,8 @@
 		"ship-streak": {
 			"type": "bool",
 			"name": "Ship trail",
-			"default": true
+			"default": true,
+			"description": "Only tints the trail's color. Your selected trail design is never touched."
 		},
 		"ghost-trail": {
 			"type": "bool",
