@@ -5,7 +5,7 @@
 	},
 	"id": "pcatcoder.chroma-icon",
 	"name": "Chroma icon",
-	"version": "v1.5.0",
+	"version": "v1.7.1",
 	"developer": "PCATCODER",
 	"description": "Rainbow-cycles your icon colors, glow, trails and fire. Pick exactly what is affected in the settings.",
 	"settings": {
@@ -59,6 +59,16 @@
 			},
 			"description": "0 = Color 1 matches Color 2. 0.5 = opposite side of the rainbow."
 		},
+		"title-p2": {
+			"type": "title",
+			"name": "Player 2 (dual levels)"
+		},
+		"link-p2": {
+			"type": "bool",
+			"name": "Link colors together (Player 2 shares Player 1's rainbow)",
+			"default": false,
+			"description": "In dual levels, Player 2 gets the same rainbow colors as Player 1, even if another mod gives it its own colors. Off: Player 2 is only touched if it really uses the rainbow."
+		},
 		"title-effects": {
 			"type": "title",
 			"name": "Effects (when my icon uses the rainbow)"
@@ -66,24 +76,26 @@
 		"regular-trail": {
 			"type": "bool",
 			"name": "Trail",
-			"default": true,
-			"description": "Only tints the trail's color. Your selected trail design is never touched."
+			"default": false,
+			"description": "Off by default, because some other trail mods clash with it. Only tints the trail's color; your selected trail design is never touched."
 		},
 		"wave-trail": {
 			"type": "bool",
 			"name": "Wave trail",
-			"default": true
+			"default": false,
+			"description": "Off by default, because some other trail mods clash with it. Only tints the trail's color; your selected trail design is never touched."
 		},
 		"ship-streak": {
 			"type": "bool",
 			"name": "Ship trail",
-			"default": true,
-			"description": "Only tints the trail's color. Your selected trail design is never touched."
+			"default": false,
+			"description": "Off by default, because some other trail mods clash with it. Only tints the trail's color; your selected trail design is never touched."
 		},
 		"ghost-trail": {
 			"type": "bool",
 			"name": "Ghost trail",
-			"default": true
+			"default": false,
+			"description": "Off by default, because some other trail mods clash with it. Only tints the trail's color; your selected trail design is never touched."
 		},
 		"dash-fire": {
 			"type": "bool",
