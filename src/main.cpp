@@ -3,7 +3,9 @@
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/GameManager.hpp>
 #include <Geode/modify/CharacterColorPage.hpp>
+#include <Geode/modify/GameLevelManager.hpp>
 #include <algorithm>
+#include <climits>
 #include <cmath>
 
 using namespace geode::prelude;
@@ -11,7 +13,8 @@ using namespace geode::prelude;
 namespace {
 	struct Config {
 		bool show = true;
-		int rainbowId = 200;
+		int rainbowId = 111;
+		bool uploadSlot = false;
 		float hue1Offset = 0.5f;
 		bool regularTrail = true;
 		bool waveTrail = true;
@@ -47,6 +50,7 @@ namespace {
 		auto m = Mod::get();
 		g_cfg.show = m->getSettingValue<bool>("show-rainbow-palette");
 		g_cfg.rainbowId = static_cast<int>(m->getSettingValue<int64_t>("rainbow-id"));
+		g_cfg.uploadSlot = m->getSettingValue<bool>("upload-slot");
 		g_cfg.hue1Offset = static_cast<float>(m->getSettingValue<double>("color-1-offset"));
 		g_cfg.regularTrail = m->getSettingValue<bool>("regular-trail");
 		g_cfg.waveTrail = m->getSettingValue<bool>("wave-trail");
@@ -57,6 +61,16 @@ namespace {
 		g_cfg.swingFire = m->getSettingValue<bool>("swing-fire");
 		g_cfg.groundParticles = m->getSettingValue<bool>("ground-particles");
 		g_cfg.progressBar = m->getSettingValue<bool>("progress-bar");
+	}
+
+	// Sets the saved glow color id, whichever way this Geode version allows
+	template <class GM>
+	void setGlowId(GM* gm, int id) {
+		if constexpr (requires { gm->m_playerGlowColor; }) {
+			gm->m_playerGlowColor = id;
+		} else if constexpr (requires { gm->setPlayerColor3(id); }) {
+			gm->setPlayerColor3(id);
+		}
 	}
 
 	ccColor3B hueToRGB(float h) {
@@ -71,6 +85,27 @@ namespace {
 			static_cast<GLubyte>(cl(g) * 255.f),
 			static_cast<GLubyte>(cl(b) * 255.f)
 		};
+	}
+
+	// Closest real palette color to a color (skips unknown slots past the palette end)
+	int nearestPaletteId(ccColor3B c) {
+		auto gm = GameManager::get();
+		ccColor3B unknown = gm->colorForIdx(99999);
+		int best = 0;
+		int bestDist = INT_MAX;
+		for (int i = 0; i < 111; i++) {
+			auto p = gm->colorForIdx(i);
+			if (i >= 100 && p.r == unknown.r && p.g == unknown.g && p.b == unknown.b) continue;
+			int dr = int(p.r) - int(c.r);
+			int dg = int(p.g) - int(c.g);
+			int db = int(p.b) - int(c.b);
+			int d = dr * dr + dg * dg + db * db;
+			if (d < bestDist) {
+				bestDist = d;
+				best = i;
+			}
+		}
+		return best;
 	}
 
 	bool isMark(ccColor3B c) {
@@ -146,18 +181,11 @@ namespace {
 		if (s) s->setColor(c);
 	}
 
-	// Own version of CCMotionStreak::tintWithColor (the original may be missing
-	// on some Windows builds, which would stop the whole mod from loading)
+	// Gentle trail tint: only sets the trail's color for NEW points. It never touches the
+	// trail's shape, texture or point buffers, so your selected trail design stays as is
+	// and it will not fight with other trail mods.
 	void tintStreak(CCMotionStreak* s, ccColor3B c) {
-		if (!s) return;
-		s->setColor(c);
-		if (s->m_pColorPointer) {
-			for (unsigned int i = 0; i < s->m_uNuPoints * 2; i++) {
-				s->m_pColorPointer[i * 4 + 0] = c.r;
-				s->m_pColorPointer[i * 4 + 1] = c.g;
-				s->m_pColorPointer[i * 4 + 2] = c.b;
-			}
-		}
+		if (s) s->setColor(c);
 	}
 
 	void tick(float dt) {
@@ -260,6 +288,33 @@ class $modify(RainbowColorPage, CharacterColorPage) {
 	int colorForIndex(int index) {
 		if (g_cfg.show && index == g_cfg.rainbowId) return index;
 		return CharacterColorPage::colorForIndex(index);
+	}
+};
+
+// Profile upload: other players see the NEAREST REAL PALETTE COLOR to the current rainbow
+// (a normal color everyone's game knows). Your real saved colors are put straight back.
+class $modify(RainbowUpload, GameLevelManager) {
+	void updateUserScore() {
+		if (!g_cfg.show || g_cfg.uploadSlot || (!g_own1 && !g_own2 && !g_ownGlow)) {
+			GameLevelManager::updateUserScore();
+			return;
+		}
+		auto gm = GameManager::get();
+		int o1 = gm->getPlayerColor();
+		int o2 = gm->getPlayerColor2();
+		int og = gm->getPlayerGlowColor();
+		ccColor3B c1 = hueToRGB(g_hue + g_cfg.hue1Offset);
+		ccColor3B c2 = hueToRGB(g_hue);
+
+		if (g_own1) gm->setPlayerColor(nearestPaletteId(c1));
+		if (g_own2) gm->setPlayerColor2(nearestPaletteId(c2));
+		if (g_ownGlow) setGlowId(gm, nearestPaletteId(c2));
+
+		GameLevelManager::updateUserScore();
+
+		gm->setPlayerColor(o1);
+		gm->setPlayerColor2(o2);
+		setGlowId(gm, og);
 	}
 };
 
