@@ -15,6 +15,7 @@ namespace {
 		bool show = true;
 		int rainbowId = 111;
 		bool uploadSlot = false;
+		bool linkP2 = false;
 		float hue1Offset = 0.5f;
 		bool regularTrail = true;
 		bool waveTrail = true;
@@ -51,6 +52,7 @@ namespace {
 		g_cfg.show = m->getSettingValue<bool>("show-rainbow-palette");
 		g_cfg.rainbowId = static_cast<int>(m->getSettingValue<int64_t>("rainbow-id"));
 		g_cfg.uploadSlot = m->getSettingValue<bool>("upload-slot");
+		g_cfg.linkP2 = m->getSettingValue<bool>("link-p2");
 		g_cfg.hue1Offset = static_cast<float>(m->getSettingValue<double>("color-1-offset"));
 		g_cfg.regularTrail = m->getSettingValue<bool>("regular-trail");
 		g_cfg.waveTrail = m->getSettingValue<bool>("wave-trail");
@@ -320,20 +322,43 @@ class $modify(RainbowUpload, GameLevelManager) {
 
 // In a level: animate your own icon, trails and fire
 class $modify(RainbowPlayer, PlayerObject) {
+	struct Fields {
+		bool own1 = false;
+		bool own2 = false;
+	};
+
 	void update(float dt) {
 		PlayerObject::update(dt);
-		if (!g_own1 && !g_own2 && !g_ownGlow) return;
+		if (!g_cfg.show) return;
 		auto pl = PlayLayer::get();
 		if (!pl) return;
 		if (this != pl->m_player1 && this != pl->m_player2) return;
 
+		// Player 1 follows my saved colors. Player 2 can have its own separate colors
+		// (from another mod), so it is only touched if it really wears the Rainbow slot.
+		bool own1 = g_own1;
+		bool own2 = g_own2;
+		bool ownGlow = g_ownGlow;
+		if (this != pl->m_player1) {
+			if (g_cfg.linkP2) {
+				// linked colors: player 2 shares player 1's rainbow (own1/own2/ownGlow already match)
+			} else {
+				if (isMark(this->m_playerColor1)) m_fields->own1 = true;
+				if (isMark(this->m_playerColor2)) m_fields->own2 = true;
+				own1 = m_fields->own1;
+				own2 = m_fields->own2;
+				ownGlow = false;
+			}
+		}
+		if (!own1 && !own2 && !ownGlow) return;
+
 		ccColor3B c1 = hueToRGB(g_hue + g_cfg.hue1Offset);
 		ccColor3B c2 = hueToRGB(g_hue);
 
-		if (g_own1) this->setColor(c1);
-		if (g_own2) this->setSecondColor(c2);
+		if (own1) this->setColor(c1);
+		if (own2) this->setSecondColor(c2);
 
-		if (g_ownGlow) {
+		if (ownGlow) {
 			// robot and spider have their own glow sprites, so never force their flags
 			bool special = this->m_isRobot || this->m_isSpider;
 			if (!special && !this->m_hasGlow) {
